@@ -1,100 +1,146 @@
-#include <map>
 #include <iostream>
+#include <vector>
+#include <map>
+#include "math.h"
+#include <sstream>
+#include <fstream>
 #include <ctime>
 #include <locale>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <sstream>
 
+using namespace  std;
+
+using namespace std;
 struct Object
 {
-public:
-    std::string name;
-    std::string type;
+    string name;
     float x;
     float y;
-    time_t creationTime;
+    string type;
+    time_t time;
 };
 
-std::vector<Object> getObjects(std::fstream& file) {
-    std::vector<Object> objects;
-    std::string line;
+bool isRussianLetter(char c) {
+      return (c >= 'А' && c <= 'я');
+}
 
+
+std::multimap<string, Object> getObj(fstream& file)
+{
+    string line;
+    multimap<string, Object> objects;
     while (std::getline(file, line)) {
         Object object;
         std::stringstream ss(line);
-        if (ss >> object.name >> object.x >> object.y >> object.type >> object.creationTime)
+
+        if (ss >> object.name >> object.x >> object.y >> object.type >> object.time)
         {
-            objects.push_back(object);
-        }
-        else
-        {
-            std::cerr << "Error reading line " << line << std::endl;
+            objects.insert(std::make_pair(object.name, object));
+        } else {
+            std::cerr << "Error reading file: " << line << std::endl;
         }
     }
     return objects;
 }
 
-std::multimap<std::string, Object> getObjects2(std::fstream& file) {
-    std::multimap<std::string, Object> objects;
-    std::string line;
+std::map<char, std::vector<Object>> nameGroups(multimap<string, Object> objects)
+{
+    char prevFirstLetter = 0;
+    std::map<char, std::vector<Object>> groups;
+    for (auto i=objects.begin(); i!=objects.end(); ++i) {
 
-    while (std::getline(file, line)) {
-        Object object;
-        std::stringstream ss(line);
-        if (ss >> object.name >> object.x >> object.y >> object.type >> object.creationTime)
+        char firstLetter = tolower(i->second.name[0]);
+        if (isRussianLetter(firstLetter))
         {
-            objects.insert(std::make_pair(object.name, object ));
+            if (firstLetter == tolower(prevFirstLetter)) {
+                groups[firstLetter].push_back(i->second);
+            }
+            else {
+                groups[firstLetter].push_back(i->second);
+                prevFirstLetter = firstLetter;
+            }
         }
         else
         {
-            std::cerr << "Error reading line " << line << std::endl;
+           groups['#'].push_back(i->second);
+           prevFirstLetter = 0;
         }
     }
-    return objects;
+    return groups;
 }
 
-
-void showObjects(const std::vector<Object>& a)
+std::map<time_t,std::vector<Object>> timeGroups(const std::multimap<std::string, Object>& objects)
 {
-    for(auto i : a)
+    std::map<time_t, std::vector<Object>> groups;
+
+    std::time_t currentTime = std::time(0);
+    std::time_t today = currentTime - 40000;
+    std::time_t yesterday = currentTime - 86400; // 86400 секунд в одном дне
+    std::time_t sevenDaysAgo = currentTime - 7 * 86400; // 7 дней назад
+    std::time_t thirtyDaysAgo = currentTime - 30 * 86400; // 30 дней назад
+    std::time_t oneYearAgo = currentTime - 365 * 86400; // 1 год назад
+
+    for (auto it = objects.begin(); it != objects.end(); ++it) {
+        time_t cur = it->second.time;
+
+        if (cur >= today ) {
+            groups[today].push_back(it->second);
+        } else if (cur >= yesterday) {
+            groups[yesterday].push_back(it->second);
+        } else if (cur >= sevenDaysAgo) {
+            groups[sevenDaysAgo].push_back(it->second);
+        } else if (cur >= thirtyDaysAgo) {
+            groups[thirtyDaysAgo].push_back(it->second);
+        } else {
+            groups[oneYearAgo].push_back(it->second);
+        }
+    }
+    return groups;
+}
+
+std::map<time_t,std::vector<Object>> typeGroups(const std::multimap<std::string, Object>& objects)
+{
+    std::map<time_t, std::vector<Object>> groups;
+
+
+    }
+    return groups;
+}
+
+void showVec(const std::map<char, std::vector<Object>>& groups )
+{
+    for(auto i:groups)
     {
-        std::cout << i.name  << "\t" << i.x << " " << i.y << " "  << i.type << " " << i.creationTime << std::endl;
+        cout << i.first << endl;
+        for(auto j : i.second)
+        {
+            cout << "\t" << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time <<endl;
+        }
     }
 }
-void showObjects2(const std::multimap<std::string, Object>& a)
+void showVec2(std::map<time_t, std::vector<Object>>& groups )
 {
-    for(auto i : a)
+    for(auto i : groups)
     {
-        std::cout << i.second.name  << "\t" << i.second.x << " " << i.second.y << " "
-                  << i.second.type << " " << i.second.creationTime << std::endl;
+        cout << i.first << endl;
+        for(const auto j : i.second)
+        {
+            cout << "\t" << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time <<endl;
+        }
     }
 }
-
-
-//std::map<char, std::map<std::string, Object>> sorting
-//    (std::vector<Object>& allObj, std::string& name, std::string& sortingType )
-
-//std::map<char, Object> sorting(std::vector<Object>& allObj)
-//{
-//    std::map<char, Object> alfabet;
-//    for(auto i : allObj)
-//    {
-//        if(alfabet.find(i.name[0]) != alfabet.end() )
-//    }
-//}
-
 
 int main() {
-    setlocale(LC_ALL, "ru_RU.UTF-8");
-    std::fstream file("obj.txt");
-    std::vector<Object> allObj;
-    std::multimap<std::string ,Object> allObj2;
 
-    allObj2 = getObjects2(file);
-    std::cout << "We having base" << std::endl;
-    showObjects2(allObj2);
+    setlocale(LC_ALL , "ru");
+
+    fstream file("obj.txt");
+    multimap<string ,Object> total = getObj(file);
+
+    std::map<char, std::vector<Object>> group = nameGroups(total);
+    showVec(group);
+
+    std::map<time_t, std::vector<Object>> timeGroup = timeGroups(total);
+    showVec2(timeGroup);
 
     return 0;
 }
