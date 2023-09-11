@@ -5,13 +5,12 @@
 #include <sstream>
 #include <fstream>
 #include <ctime>
-#include <locale>
+#include <algorithm>
 
 using namespace  std;
 
-
-std::time_t currentTime = std::time(0);
-std::time_t today = currentTime - 40000;
+std::time_t currentTime = std::time(NULL);
+std::time_t today = currentTime - 20000;
 std::time_t yesterday = currentTime - 86400;
 std::time_t sevenDaysAgo = currentTime - 7 * 86400;
 std::time_t thirtyDaysAgo = currentTime - 30 * 86400;
@@ -30,6 +29,10 @@ bool isRussianLetter(char c) {
       return (c >= 'А' && c <= 'я');
 }
 
+int calcDistance(const float& a, const float& b)
+{
+    return sqrt(a*a + b*b);
+}
 
 std::multimap<string, Object> getObj(fstream& file)
 {
@@ -79,23 +82,26 @@ std::map<time_t,std::vector<Object>> timeGroups(const std::multimap<std::string,
 {
     std::map<time_t, std::vector<Object>> groups;
 
-
-
     for (auto it = objects.begin(); it != objects.end(); ++it) {
-        time_t cur = it->second.time;
 
-        if (cur >= today ) {
-            groups[today].push_back(it->second);
-        } else if (cur >= yesterday) {
-            groups[yesterday].push_back(it->second);
-        } else if (cur >= sevenDaysAgo) {
-            groups[sevenDaysAgo].push_back(it->second);
-        } else if (cur >= thirtyDaysAgo) {
-            groups[thirtyDaysAgo].push_back(it->second);
-        } else {
+        if (it->second.time <= oneYearAgo) {
             groups[oneYearAgo].push_back(it->second);
+        } else if (it->second.time <= thirtyDaysAgo) {
+            groups[thirtyDaysAgo].push_back(it->second);
+        } else if (it->second.time <= sevenDaysAgo) {
+            groups[sevenDaysAgo].push_back(it->second);
+        } else if (it->second.time <= yesterday) {
+            groups[yesterday].push_back(it->second);
+        } else {
+            groups[today].push_back(it->second);
         }
     }
+    for (auto& group : groups) {
+        std::sort(group.second.begin(), group.second.end(), [](const Object& a, const Object& b) {
+            return a.time > b.time;
+        });
+    }
+
     return groups;
 }
 
@@ -103,65 +109,107 @@ std::map<std::string, std::vector<Object>> typeGroups(const std::map<char, std::
     std::map<std::string, std::vector<Object>> typeGroups;
 
     for (const auto& pair : group) {
-
         const std::vector<Object>& objects = pair.second;
 
         for (const Object& obj : objects) {
             const std::string& objectType = obj.type;
-
-            // Поместить объект в соответствующую группу
             typeGroups[objectType].push_back(obj);
         }
     }
 
-    // Теперь, если объектов в группе меньше чем n, объединим их в группу "Разное"
     for (const auto& pair : typeGroups) {
         const std::string& typeName = pair.first;
         std::vector<Object>& objects = typeGroups[typeName];
 
         if (objects.size() <= n) {
-            typeGroups["Разное"].insert(typeGroups["Разное"].end(), objects.begin(), objects.end());
-            typeGroups.erase(typeName); // Удалить текущую группу
+            typeGroups["разное"].insert(typeGroups["разное"].end(), objects.begin(), objects.end());
+            typeGroups.erase(typeName);
         }
     }
 
     return typeGroups;
 }
 
+std::map<std::string, std::vector<Object>> distanceGroups(const multimap<string, Object> objects) {
+    std::map<std::string, std::vector<Object>> groups;
+
+    for (auto it = objects.begin(); it != objects.end(); ++it) {
+        if (calcDistance(it->second.x, it->second.y) < 100)
+            groups["100"].push_back(it->second);
+        else if (calcDistance(it->second.x, it->second.y) < 1000)
+            groups["1000"].push_back(it->second);
+        else if (calcDistance(it->second.x, it->second.y) < 10000)
+            groups["10000"].push_back(it->second);
+        else if (calcDistance(it->second.x, it->second.y) > 10000)
+            groups["over 10000"].push_back(it->second);
+    }
+    for (auto& group : groups) {
+        std::sort(group.second.begin(), group.second.end(), [](const Object& a, const Object& b) {
+            return calcDistance(a.x,a.y) > calcDistance(b.x,b.y);
+        });
+    }
+    return groups;
+}
+
 template <typename KeyType>
 void showVec(const std::map<KeyType, std::vector<Object>>& groups) {
-    for (const auto& i : groups) {
-        if constexpr (std::is_same<KeyType, time_t>::value)
-        {
-            cout << std::ctime(&i.first) <<endl;
+    if constexpr (std::is_same<KeyType, time_t>::value)
+    {
+        std::string dat;
+        for (auto it = groups.rbegin(); it != groups.rend(); ++it){
+            if (it->first <= oneYearAgo)
+                dat = "year ago";
+            else if (it->first <= thirtyDaysAgo)
+                dat = "month ago";
+            else if (it->first <= sevenDaysAgo)
+                dat = "week ago";
+            else if (it->first <= yesterday)
+                dat = "yesterday";
+            else if (it->first <= today)
+                dat = "today";
+            cout << dat << endl;
+            for (const auto &j : it->second ) {
+                std::cout << "\t" << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time << std::endl;
+            }
         }
-        else
+    }
+    else
+    {
+        for (const auto& i : groups) {
             std::cout << i.first << std::endl;
-
-        for (const auto& j : i.second) {
-            std::cout << "\t" << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time << std::endl;
+            for (const auto& j : i.second) {
+                std::cout << "\t" << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time << std::endl;
+            }
         }
     }
 }
 
 int main() {
 
-    setlocale(LC_ALL , "ru");
+    setlocale(LC_ALL , "en");
 
     fstream file("obj.txt");
-    multimap<string ,Object> total = getObj(file);
+    multimap<string,Object> total = getObj(file);
 
     std::map<char, std::vector<Object>> group = nameGroups(total);
     showVec(group);
     cout << endl;
 
-    std::map<time_t, std::vector<Object>> timeGroup = timeGroups(total);
-    showVec(timeGroup);
-    cout << endl;
+    std::map<std::string, std::vector<Object>> toOut = distanceGroups(total);
+    showVec(toOut);
 
-    std::map<string, std::vector<Object>> typeGroup = typeGroups(group,2);
-    showVec(typeGroup);
-    cout << endl;
+    std::ofstream outputFile("sorted_objects.txt");
+    if (outputFile.is_open()) {
+        for (const auto i : toOut) {
+            for(auto j : i.second)
+            {
+                outputFile << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time << std::endl;
+            }
+        }
+        outputFile.close();
+    } else {
+        std::cerr << "Error opening file" << std::endl;
+    }
 
     return 0;
 }
