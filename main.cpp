@@ -9,7 +9,14 @@
 
 using namespace  std;
 
-using namespace std;
+
+std::time_t currentTime = std::time(0);
+std::time_t today = currentTime - 40000;
+std::time_t yesterday = currentTime - 86400;
+std::time_t sevenDaysAgo = currentTime - 7 * 86400;
+std::time_t thirtyDaysAgo = currentTime - 30 * 86400;
+std::time_t oneYearAgo = currentTime - 365 * 86400;
+
 struct Object
 {
     string name;
@@ -42,7 +49,7 @@ std::multimap<string, Object> getObj(fstream& file)
     return objects;
 }
 
-std::map<char, std::vector<Object>> nameGroups(multimap<string, Object> objects)
+std::map<char, std::vector<Object>> nameGroups(const multimap<string, Object> objects)
 {
     char prevFirstLetter = 0;
     std::map<char, std::vector<Object>> groups;
@@ -72,12 +79,7 @@ std::map<time_t,std::vector<Object>> timeGroups(const std::multimap<std::string,
 {
     std::map<time_t, std::vector<Object>> groups;
 
-    std::time_t currentTime = std::time(0);
-    std::time_t today = currentTime - 40000;
-    std::time_t yesterday = currentTime - 86400; // 86400 секунд в одном дне
-    std::time_t sevenDaysAgo = currentTime - 7 * 86400; // 7 дней назад
-    std::time_t thirtyDaysAgo = currentTime - 30 * 86400; // 30 дней назад
-    std::time_t oneYearAgo = currentTime - 365 * 86400; // 1 год назад
+
 
     for (auto it = objects.begin(); it != objects.end(); ++it) {
         time_t cur = it->second.time;
@@ -97,34 +99,47 @@ std::map<time_t,std::vector<Object>> timeGroups(const std::multimap<std::string,
     return groups;
 }
 
-std::map<time_t,std::vector<Object>> typeGroups(const std::multimap<std::string, Object>& objects)
-{
-    std::map<time_t, std::vector<Object>> groups;
+std::map<std::string, std::vector<Object>> typeGroups(const std::map<char, std::vector<Object>>& group, int n) {
+    std::map<std::string, std::vector<Object>> typeGroups;
 
+    for (const auto& pair : group) {
 
-    }
-    return groups;
-}
+        const std::vector<Object>& objects = pair.second;
 
-void showVec(const std::map<char, std::vector<Object>>& groups )
-{
-    for(auto i:groups)
-    {
-        cout << i.first << endl;
-        for(auto j : i.second)
-        {
-            cout << "\t" << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time <<endl;
+        for (const Object& obj : objects) {
+            const std::string& objectType = obj.type;
+
+            // Поместить объект в соответствующую группу
+            typeGroups[objectType].push_back(obj);
         }
     }
+
+    // Теперь, если объектов в группе меньше чем n, объединим их в группу "Разное"
+    for (const auto& pair : typeGroups) {
+        const std::string& typeName = pair.first;
+        std::vector<Object>& objects = typeGroups[typeName];
+
+        if (objects.size() <= n) {
+            typeGroups["Разное"].insert(typeGroups["Разное"].end(), objects.begin(), objects.end());
+            typeGroups.erase(typeName); // Удалить текущую группу
+        }
+    }
+
+    return typeGroups;
 }
-void showVec2(std::map<time_t, std::vector<Object>>& groups )
-{
-    for(auto i : groups)
-    {
-        cout << i.first << endl;
-        for(const auto j : i.second)
+
+template <typename KeyType>
+void showVec(const std::map<KeyType, std::vector<Object>>& groups) {
+    for (const auto& i : groups) {
+        if constexpr (std::is_same<KeyType, time_t>::value)
         {
-            cout << "\t" << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time <<endl;
+            cout << std::ctime(&i.first) <<endl;
+        }
+        else
+            std::cout << i.first << std::endl;
+
+        for (const auto& j : i.second) {
+            std::cout << "\t" << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time << std::endl;
         }
     }
 }
@@ -138,9 +153,15 @@ int main() {
 
     std::map<char, std::vector<Object>> group = nameGroups(total);
     showVec(group);
+    cout << endl;
 
     std::map<time_t, std::vector<Object>> timeGroup = timeGroups(total);
-    showVec2(timeGroup);
+    showVec(timeGroup);
+    cout << endl;
+
+    std::map<string, std::vector<Object>> typeGroup = typeGroups(group,2);
+    showVec(typeGroup);
+    cout << endl;
 
     return 0;
 }
