@@ -34,10 +34,11 @@ int calcDistance(const float& a, const float& b)
     return sqrt(a*a + b*b);
 }
 
-std::multimap<string, Object> getObj(fstream& file)
+std::multimap<string, Object> getObj(fstream& file) //return sorted by name
 {
     string line;
     multimap<string, Object> objects;
+
     while (std::getline(file, line)) {
         Object object;
         std::stringstream ss(line);
@@ -52,7 +53,7 @@ std::multimap<string, Object> getObj(fstream& file)
     return objects;
 }
 
-std::map<char, std::vector<Object>> nameGroups(const multimap<string, Object> objects)
+std::map<char, std::vector<Object>> nameGroups(const multimap<string, Object> objects) //group by name
 {
     char prevFirstLetter = 0;
     std::map<char, std::vector<Object>> groups;
@@ -78,7 +79,7 @@ std::map<char, std::vector<Object>> nameGroups(const multimap<string, Object> ob
     return groups;
 }
 
-std::map<time_t,std::vector<Object>> timeGroups(const std::multimap<std::string, Object>& objects)
+std::map<time_t,std::vector<Object>> timeGroups(const std::multimap<string, Object>& objects) //group by time
 {
     std::map<time_t, std::vector<Object>> groups;
 
@@ -96,16 +97,12 @@ std::map<time_t,std::vector<Object>> timeGroups(const std::multimap<std::string,
             groups[today].push_back(it->second);
         }
     }
-    for (auto& group : groups) {
-        std::sort(group.second.begin(), group.second.end(), [](const Object& a, const Object& b) {
-            return a.time > b.time;
-        });
-    }
 
     return groups;
 }
 
-std::map<std::string, std::vector<Object>> typeGroups(const std::map<char, std::vector<Object>>& group, int n) {
+std::map<std::string, std::vector<Object>> typeGroups(const std::map<char, std::vector<Object>>& group, int n) //group by type
+{
     std::map<std::string, std::vector<Object>> typeGroups;
 
     for (const auto& pair : group) {
@@ -143,13 +140,9 @@ std::map<std::string, std::vector<Object>> distanceGroups(const multimap<string,
         else if (calcDistance(it->second.x, it->second.y) > 10000)
             groups["over 10000"].push_back(it->second);
     }
-    for (auto& group : groups) {
-        std::sort(group.second.begin(), group.second.end(), [](const Object& a, const Object& b) {
-            return calcDistance(a.x,a.y) > calcDistance(b.x,b.y);
-        });
-    }
+
     return groups;
-}
+} //group by type
 
 template <typename KeyType>
 void showVec(const std::map<KeyType, std::vector<Object>>& groups) {
@@ -184,6 +177,87 @@ void showVec(const std::map<KeyType, std::vector<Object>>& groups) {
     }
 }
 
+template <typename KeyType>
+void sortVec (std::map<KeyType, std::vector<Object>>& groups, string& command)
+{
+    if(command == "time")
+    {
+        for (auto& group : groups) {
+            std::sort(group.second.begin(), group.second.end(), [](const Object& a, const Object& b) {
+                return a.time > b.time;
+            });
+        }
+    }
+    else if(command == "distance")
+    {
+        for (auto& group : groups) {
+            std::sort(group.second.begin(), group.second.end(), [](const Object& a, const Object& b) {
+                return calcDistance(a.x,a.y) > calcDistance(b.x,b.y);
+            });
+        }
+    }
+    else if(command == "name")
+    {
+        for (auto& group : groups) {
+            std::sort(group.second.begin(), group.second.end(), [](const Object& a, const Object& b) {
+                return a.name < b.name;
+            });
+        }
+    }
+    else if(command == "type") {
+        if constexpr (std::is_same<KeyType, time_t>::value)
+        {
+            for (auto &group: groups) {
+                std::sort(group.second.begin(), group.second.end(), [](const Object &a, const Object &b) {
+                    return a.type < b.type;
+                });
+            }
+        }
+        else
+        {
+            for (auto &group: groups) {
+                std::sort(group.second.begin(), group.second.end(), [](const Object &a, const Object &b) {
+                    return a.type < b.type;
+                });
+            }
+        }
+    }
+}
+
+template <typename KeyType>
+void save(std::map<KeyType, std::vector<Object>>& groups)
+{
+    ofstream outputFile("sorted_objects.txt");
+    if constexpr (std::is_same<KeyType, time_t>::value)
+    {
+        if (outputFile.is_open()) {
+            for (auto i= groups.rbegin(); i!=groups.rend(); ++i) {
+                for(auto j : i->second)
+                {
+                    outputFile << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time << std::endl;
+                }
+            }
+            outputFile.close();
+        } else {
+            cerr << "Error opening file" << endl;
+        }
+    }
+    else
+    {
+        if (outputFile.is_open()) {
+            for (const auto i : groups) {
+                for(auto j : i.second)
+                {
+                    outputFile << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time << std::endl;
+                }
+            }
+            outputFile.close();
+        } else {
+            cerr << "Error opening file" << endl;
+        }
+    }
+}
+
 int main() {
 
     setlocale(LC_ALL , "en");
@@ -191,25 +265,68 @@ int main() {
     fstream file("obj.txt");
     multimap<string,Object> total = getObj(file);
 
-    std::map<char, std::vector<Object>> group = nameGroups(total);
-    showVec(group);
-    cout << endl;
+    std::map<char, std::vector<Object>> groupNm;
+    std::map<time_t,std::vector<Object>> groupTm;
+    std::map<std::string, std::vector<Object>> groupTp;
+    std::map<std::string, std::vector<Object>> groupDs;
 
-    std::map<std::string, std::vector<Object>> toOut = distanceGroups(total);
-    showVec(toOut);
+    string command;
+    string command2;
 
-    std::ofstream outputFile("sorted_objects.txt");
-    if (outputFile.is_open()) {
-        for (const auto i : toOut) {
-            for(auto j : i.second)
-            {
-                outputFile << j.name << " " << j.x << " " << j.y << " " << j.type << " " << j.time << std::endl;
-            }
+    while (command != "q")
+    {
+        cout << "We grouping data by: name, type, distance, time, save, q-exit " <<endl;
+        cin >> command;
+        if(command == "name"){
+            groupNm = nameGroups(total);
+            showVec(groupNm);
+            cout << "We sorting data by: name, type, distance, time, no... " <<endl;
+            cin >> command;
+            if(command != "no")
+                sortVec(groupNm,command);
+            showVec(groupNm);
         }
-        outputFile.close();
-    } else {
-        std::cerr << "Error opening file" << std::endl;
+        else if(command == "type"){
+            groupTp = typeGroups(groupNm,2);
+            showVec(groupTp);
+            cout << "We sorting data by: name, type, distance, time, no... " <<endl;
+            cin >> command;
+            if(command != "no")
+                sortVec(groupTp,command);
+            showVec(groupTp);
+        }
+        else if(command == "distance"){
+            groupDs = distanceGroups(total);
+            showVec(groupDs);
+            cout << "We sorting data by: name, type, distance, time, no... " <<endl;
+            cin >> command;
+            if(command != "no")
+                sortVec(groupDs,command);
+            showVec(groupDs);
+        }
+        else if(command == "time"){
+            groupTm = timeGroups(total);
+            showVec(groupTm);
+            cout << "We sorting data by: name, type, distance, time, no... " <<endl;
+            cin >> command;
+            if(command != "no")
+                sortVec(groupTm,command);
+            showVec(groupTm);
+        }
+        else if(command == "save")
+        {
+            cout << "1-namesGroup, 2-typesGroup, 3-timesGroup, 4-distanceGroup " <<endl;
+            cin >> command;
+            if(command == "1")
+                save(groupNm);
+            if(command == "2")
+                save(groupTp);
+            if(command == "3")
+                save(groupTm);
+            if(command == "4")
+                save(groupDs);
+            cout << "saving " <<endl;
+        }
     }
-
     return 0;
 }
