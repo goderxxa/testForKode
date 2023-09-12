@@ -192,7 +192,7 @@ void sortVec (std::map<KeyType, std::vector<Object>>& groups, string& command)
     {
         for (auto& group : groups) {
             std::sort(group.second.begin(), group.second.end(), [](const Object& a, const Object& b) {
-                return calcDistance(a.x,a.y) > calcDistance(b.x,b.y);
+                return calcDistance(a.x,a.y) < calcDistance(b.x,b.y);
             });
         }
     }
