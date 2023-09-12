@@ -6,6 +6,7 @@
 #include <fstream>
 #include <ctime>
 #include <algorithm>
+#include <locale>
 
 using namespace  std;
 
@@ -265,13 +266,13 @@ int main() {
     fstream file("obj.txt");
     multimap<string,Object> total = getObj(file);
 
+    string command;
+    string command2;
+
     std::map<char, std::vector<Object>> groupNm;
     std::map<time_t,std::vector<Object>> groupTm;
     std::map<std::string, std::vector<Object>> groupTp;
     std::map<std::string, std::vector<Object>> groupDs;
-
-    string command;
-    string command2;
 
     while (command != "q")
     {
@@ -283,35 +284,48 @@ int main() {
             cout << "We sorting data by: name, type, distance, time, no... " <<endl;
             cin >> command;
             if(command != "no")
+            {
                 sortVec(groupNm,command);
-            showVec(groupNm);
+                showVec(groupNm);
+            }
+            else
+                continue;
         }
         else if(command == "type"){
             groupTp = typeGroups(groupNm,2);
             showVec(groupTp);
             cout << "We sorting data by: name, type, distance, time, no... " <<endl;
             cin >> command;
-            if(command != "no")
+            if(command != "no"){
                 sortVec(groupTp,command);
             showVec(groupTp);
+            }
+            else
+                continue;
         }
         else if(command == "distance"){
             groupDs = distanceGroups(total);
             showVec(groupDs);
             cout << "We sorting data by: name, type, distance, time, no... " <<endl;
             cin >> command;
-            if(command != "no")
+            if(command != "no"){
                 sortVec(groupDs,command);
             showVec(groupDs);
+            }
+            else
+                 continue;
         }
         else if(command == "time"){
             groupTm = timeGroups(total);
             showVec(groupTm);
             cout << "We sorting data by: name, type, distance, time, no... " <<endl;
             cin >> command;
-            if(command != "no")
+            if(command != "no") {
                 sortVec(groupTm,command);
             showVec(groupTm);
+            }
+            else
+                continue;
         }
         else if(command == "save")
         {
